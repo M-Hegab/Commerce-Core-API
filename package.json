@@ -1,5 +1,5 @@
 {
-  "name": "file-processing-system",
+  "name": "commerce-core-api",
   "version": "1.0.0",
   "description": "",
   "main": "dist/server.js",
@@ -26,14 +26,23 @@
   },
   "homepage": "https://github.com/M-Hegab/File-Processing-System#readme",
   "dependencies": {
+    "bcrypt": "^6.0.0",
     "dotenv": "^17.4.2",
-    "express": "^5.2.1"
+    "drizzle-orm": "^0.45.2",
+    "express": "^5.2.1",
+    "postgres": "^3.4.9"
+  },
+   "overrides": {
+    "esbuild": "^0.25.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@eslint/json": "^2.0.1",
+    "@types/bcrypt": "^6.0.0",
     "@types/express": "^5.0.6",
     "@types/node": "^26.4.0",
+    "@types/pg": "^8.23.1",
+    "drizzle-kit": "^0.18.1",
     "eslint": "^10.8.1",
     "globals": "^17.9.0",
     "prettier": "3.9.6",
