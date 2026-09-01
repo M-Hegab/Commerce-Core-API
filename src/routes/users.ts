@@ -27,13 +27,13 @@ app.post('/users', async (req, res) => {
 
     try {
         await db.transaction(async (tx) => {
-            const userData = await db.select().from(users).where(eq(users.email, email));
+            const userData = await tx.select().from(users).where(eq(users.email, email));
     
             if (userData.length > 0) {
                 return res.status(409).json("email already exist");
             }
     
-            await db.insert(users).values({ name: name, email: email, password: hashedPassword });
+            await tx.insert(users).values({ name: name, email: email, password: hashedPassword });
         })
     
         console.log("201: User registered successfully!");
