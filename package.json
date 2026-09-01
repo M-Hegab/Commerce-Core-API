@@ -16,15 +16,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/M-Hegab/File-Processing-System.git"
+    "url": "git+https://github.com/M-Hegab/Commerce-Core-API.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/M-Hegab/File-Processing-System/issues"
+    "url": "https://github.com/M-Hegab/Commerce-Core-API/issues"
   },
-  "homepage": "https://github.com/M-Hegab/File-Processing-System#readme",
+  "homepage": "https://github.com/M-Hegab/Commerce-Core-API#readme",
   "dependencies": {
     "bcrypt": "^6.0.0",
     "dotenv": "^17.4.2",
