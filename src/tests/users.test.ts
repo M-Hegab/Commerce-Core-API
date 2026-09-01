@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from 'vitest';
 import http from 'node:http';
 import app from '../app.js';
-import { validateUser } from './users.js';
+import { validateUser } from '../routes/users.js';
 
 const { db: mockDb, mockInsert, mockValues } = vi.hoisted(() => {
   const insertFn = vi.fn();
