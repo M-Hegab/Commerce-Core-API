@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import bcrypt from 'bcrypt';
+import { sql } from 'drizzle-orm';
 import { db } from '../db/index.js';
-import { users } from '../db/schema.js';
 
 const router = Router();
 
@@ -58,14 +58,13 @@ router.post('/users', async (req, res) => {
     return res.status(400).json({ message: result });
   }
 
-  const hashedPassword = await bcrypt.hash(result.password, 10);
-
   try {
-    await db.insert(users).values({
-      name: result.name,
-      email: result.email,
-      password: hashedPassword,
-    });
+    const hashedPassword = await bcrypt.hash(result.password, 10);
+
+    await db.execute(sql`
+      INSERT INTO users (name, email, password)
+      VALUES (${result.name}, ${result.email}, ${hashedPassword})
+    `);
 
     return res.status(201).json({
       message: 'User registered successfully!',

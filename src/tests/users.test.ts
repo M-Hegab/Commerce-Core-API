@@ -3,15 +3,27 @@ import http from 'node:http';
 import app from '../app.js';
 import { validateUser } from '../routes/users.js';
 
-const { db: mockDb, mockInsert, mockValues } = vi.hoisted(() => {
-  const insertFn = vi.fn();
-  const valuesFn = vi.fn();
+const { db: mockDb, mockExecute, mockHash } = vi.hoisted(() => {
+  const executeFn = vi.fn();
+  const hashFn = vi.fn();
   return {
-    db: { insert: insertFn, select: vi.fn() },
-    mockInsert: insertFn,
-    mockValues: valuesFn,
+    db: { execute: executeFn },
+    mockExecute: executeFn,
+    mockHash: hashFn,
   };
 });
+
+vi.mock('bcrypt', () => ({
+  default: {
+    hash: mockHash,
+    compare: vi.fn(),
+    compareSync: vi.fn(),
+    hashSync: vi.fn(),
+    genSalt: vi.fn(),
+    genSaltSync: vi.fn(),
+    getRounds: vi.fn(),
+  },
+}));
 
 vi.mock('../db/index.js', () => ({
   db: mockDb,
@@ -41,9 +53,9 @@ afterAll(async () => {
 });
 
 beforeEach(() => {
-  mockInsert.mockReset();
-  mockValues.mockReset();
-  mockInsert.mockReturnValue({ values: mockValues });
+  mockExecute.mockReset();
+  mockHash.mockReset();
+  mockHash.mockResolvedValue('$2b$10$fakehashedvalue');
 });
 
 async function postUser(
@@ -178,7 +190,7 @@ describe('validateUser', () => {
 
 describe('POST /users', () => {
   it('creates a user with valid input (201)', async () => {
-    mockValues.mockResolvedValue([]);
+    mockExecute.mockResolvedValue([]);
     const { status, body } = await postUser({
       name: 'John Doe',
       email: 'john@example.com',
@@ -191,21 +203,16 @@ describe('POST /users', () => {
     expect(resp.user.email).toBe('john@example.com');
     expect(resp.user).not.toHaveProperty('password');
     expect(resp.message).toBe('User registered successfully!');
-    expect(mockInsert).toHaveBeenCalledTimes(1);
-    expect(mockValues).toHaveBeenCalledTimes(1);
-    const insertedArg = mockValues.mock.calls[0]![0] as {
-      name: string;
-      email: string;
-      password: string;
-    };
-    expect(insertedArg.name).toBe('John Doe');
-    expect(insertedArg.email).toBe('john@example.com');
-    expect(insertedArg.password).not.toBe('password123');
-    expect(insertedArg.password).toMatch(/^\$2[aby]\$/);
+    expect(mockExecute).toHaveBeenCalledTimes(1);
+    const sqlArg = mockExecute.mock.calls[0]?.[0];
+    expect(sqlArg).toBeDefined();
+    expect(typeof sqlArg).toBe('object');
+    expect(JSON.stringify(sqlArg)).toMatch(/INSERT INTO users/i);
+    expect(mockHash).toHaveBeenCalledWith('password123', 10);
   });
 
   it('returns 400 when name is missing', async () => {
-    mockValues.mockResolvedValue([]);
+    mockExecute.mockResolvedValue([]);
     const { status, body } = await postUser({
       email: 'john@example.com',
       password: 'password123',
@@ -217,7 +224,7 @@ describe('POST /users', () => {
   });
 
   it('returns 400 when email is missing', async () => {
-    mockValues.mockResolvedValue([]);
+    mockExecute.mockResolvedValue([]);
     const { status, body } = await postUser({
       name: 'John',
       password: 'password123',
@@ -229,7 +236,7 @@ describe('POST /users', () => {
   });
 
   it('returns 400 when password is missing', async () => {
-    mockValues.mockResolvedValue([]);
+    mockExecute.mockResolvedValue([]);
     const { status, body } = await postUser({
       name: 'John',
       email: 'john@example.com',
@@ -241,7 +248,7 @@ describe('POST /users', () => {
   });
 
   it('returns 400 for invalid input (wrong data types)', async () => {
-    mockValues.mockResolvedValue([]);
+    mockExecute.mockResolvedValue([]);
     const { status } = await postUser({
       name: 555,
       email: [],
@@ -252,7 +259,7 @@ describe('POST /users', () => {
   });
 
   it('returns 400 for whitespace-only name', async () => {
-    mockValues.mockResolvedValue([]);
+    mockExecute.mockResolvedValue([]);
     const { status, body } = await postUser({
       name: '   ',
       email: 'john@example.com',
@@ -265,7 +272,7 @@ describe('POST /users', () => {
   });
 
   it('returns 400 for malformed email', async () => {
-    mockValues.mockResolvedValue([]);
+    mockExecute.mockResolvedValue([]);
     const { status, body } = await postUser({
       name: 'John',
       email: 'not-an-email',
@@ -278,7 +285,7 @@ describe('POST /users', () => {
   });
 
   it('returns 400 for short password', async () => {
-    mockValues.mockResolvedValue([]);
+    mockExecute.mockResolvedValue([]);
     const { status, body } = await postUser({
       name: 'John',
       email: 'john@example.com',
@@ -294,7 +301,7 @@ describe('POST /users', () => {
     const err = Object.assign(new Error('duplicate key value'), {
       code: '23505',
     });
-    mockValues.mockRejectedValue(err);
+    mockExecute.mockRejectedValue(err);
     const { status, body } = await postUser({
       name: 'John',
       email: 'john@example.com',
@@ -307,7 +314,7 @@ describe('POST /users', () => {
   });
 
   it('returns 500 for unexpected database failure', async () => {
-    mockValues.mockRejectedValue(new Error('Connection refused'));
+    mockExecute.mockRejectedValue(new Error('Connection refused'));
     const { status, body } = await postUser({
       name: 'John',
       email: 'john@example.com',
@@ -320,7 +327,7 @@ describe('POST /users', () => {
   });
 
   it('does not expose internal error details to client', async () => {
-    mockValues.mockRejectedValue(new Error('Connection refused'));
+    mockExecute.mockRejectedValue(new Error('Connection refused'));
     const { status, body } = await postUser({
       name: 'John',
       email: 'john@example.com',
@@ -331,5 +338,19 @@ describe('POST /users', () => {
     const resp = body as { message: string };
     expect(resp.message).toBe('Internal server error');
     expect(JSON.stringify(body)).not.toContain('Connection refused');
+  });
+
+  it('returns 500 when bcrypt.hash fails', async () => {
+    mockHash.mockRejectedValueOnce(new Error('bcrypt failure'));
+    const { status, body } = await postUser({
+      name: 'John',
+      email: 'john@example.com',
+      password: 'password123',
+    });
+
+    expect(status).toBe(500);
+    const resp = body as { message: string };
+    expect(resp.message).toBe('Internal server error');
+    expect(mockExecute).not.toHaveBeenCalled();
   });
 });
